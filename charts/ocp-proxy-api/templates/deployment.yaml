@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ocp-proxy-api.fullname" . }}
+  labels:
+    {{- include "ocp-proxy-api.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ocp-proxy-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ocp-proxy-api.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ocp-proxy-api.serviceAccountName" . }}
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: {{ include "ocp-proxy-api.fullname" . }}-config
+            items:
+            - key: nginx.conf
+              path: nginx.conf
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["nginx"]
+          args: ["-g", "daemon off;"]
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx
+          ports:
+            - name: https
+              containerPort: 6443
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - '-c'
+                - 'curl -sk -m {{ .Values.healthcheck.livenessprobe.commandTimeout }} https://localhost:6443'
+            initialDelaySeconds: {{ .Values.healthcheck.livenessprobe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.healthcheck.livenessprobe.timeoutSeconds }}
+            periodSeconds: {{ .Values.healthcheck.livenessprobe.periodSeconds }}
+            successThreshold: {{ .Values.healthcheck.livenessprobe.successThreshold }}
+            failureThreshold: {{ .Values.healthcheck.livenessprobe.failureThreshold }}
+          # readinessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+

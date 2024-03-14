@@ -1,0 +1,10 @@
+subscriptions:
+  - name: grafana-operator
+    channel: v4
+    installPlanApproval: Automatic
+    source: community-operators
+    sourceNamespace: openshift-marketplace
+
+operatorGroups:
+  - name: custom-metrics
+    targetNamespace: ~

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ocp-proxy-api.fullname" . }}
+  labels:
+    {{- include "ocp-proxy-api.labels" . | nindent 4 }}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+spec:
+  type: {{ .Values.service.type }}
+  externalTrafficPolicy: Local
+  {{- with .Values.service.ports }}
+  ports:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    {{- include "ocp-proxy-api.selectorLabels" . | nindent 4 }}
+  {{- with .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
